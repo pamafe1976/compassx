@@ -106,25 +106,50 @@ public class CompassXPlugin implements FlutterPlugin, EventChannel.StreamHandler
             @Override
             public void onSensorChanged(SensorEvent event) {
                 if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
-                    float[] rotationMatrix = new float[9];
-                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                    float[] orientationAngles = new float[3];
-                    SensorManager.getOrientation(rotationMatrix, orientationAngles);
+                    if (event.values == null || event.values.length < 3) return;
 
-                    float azimuth = (float) Math.toDegrees(orientationAngles[0]);
-                    float trueHeading = calculateTrueHeading(azimuth);
-                    float accuracyRadian = event.values[4];
-                    float accuracy =
-                            accuracyRadian != -1 ? (float) Math.toDegrees(accuracyRadian) : -1;
+                    try {
+                        float[] rotationMatrix = new float[9];
+                        SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                        float[] orientationAngles = new float[3];
+                        SensorManager.getOrientation(rotationMatrix, orientationAngles);
 
-                    if (Math.abs(lastTrueHeading - trueHeading) > headingChangeThreshold) {
-                        lastTrueHeading = trueHeading;
-                        notifyCompassChangeListeners(events, trueHeading, accuracy,
-                                shouldCalibrate);
+                        float azimuth = (float) Math.toDegrees(orientationAngles[0]);
+                        if (!Float.isFinite(azimuth)) return;
+
+                        float trueHeading = calculateTrueHeading(azimuth);
+                        if (!Float.isFinite(trueHeading)) return;
+
+                        float accuracy = -1f;
+                        if (event.values.length > 4) {
+                            float accuracyRadian = event.values[4];
+                            if (accuracyRadian != -1f) {
+                                float computedAccuracy = (float) Math.toDegrees(accuracyRadian);
+                                if (Float.isFinite(computedAccuracy)) {
+                                    accuracy = computedAccuracy;
+                                }
+                            }
+                        }
+
+                        if (Math.abs(lastTrueHeading - trueHeading) > headingChangeThreshold) {
+                            lastTrueHeading = trueHeading;
+                            notifyCompassChangeListeners(events, trueHeading, accuracy,
+                                    shouldCalibrate);
+                        }
+                    } catch (RuntimeException ignored) {
+                        return;
                     }
                 } else if (event.sensor.getType() == Sensor.TYPE_HEADING) {
+                    if (event.values == null || event.values.length < 1) return;
+
                     float heading = event.values[0];
-                    float accuracy = event.values[1];
+                    if (!Float.isFinite(heading)) return;
+
+                    float accuracy = -1f;
+                    if (event.values.length > 1 && Float.isFinite(event.values[1])) {
+                        accuracy = event.values[1];
+                    }
+
                     if (Math.abs(lastTrueHeading - heading) > headingChangeThreshold) {
                         lastTrueHeading = heading;
                         notifyCompassChangeListeners(events, heading, accuracy, shouldCalibrate);
@@ -139,6 +164,8 @@ public class CompassXPlugin implements FlutterPlugin, EventChannel.StreamHandler
             }
 
             private float calculateTrueHeading(float azimuth) {
+                if (!Float.isFinite(azimuth)) return Float.NaN;
+
                 float declination =
                         currentLocation != null
                                 ? new GeomagneticField((float) currentLocation.getLatitude(),
@@ -147,12 +174,17 @@ public class CompassXPlugin implements FlutterPlugin, EventChannel.StreamHandler
                                         System.currentTimeMillis()).getDeclination()
                                 : 0f;
 
-                float trueHeading = (azimuth + declination + 360) % 360;
-                return trueHeading;
+                if (!Float.isFinite(declination)) return Float.NaN;
+
+                float trueHeading = (azimuth + declination + 360f) % 360f;
+                return Float.isFinite(trueHeading) ? trueHeading : Float.NaN;
             }
 
             private void notifyCompassChangeListeners(EventChannel.EventSink events, float heading,
                     float accuracy, boolean shouldCalibrate) {
+                if (!Float.isFinite(heading)) return;
+                if (!Float.isFinite(accuracy) && accuracy != -1f) return;
+
                 events.success(new HashMap<String, Object>() {
                     {
                         put("heading", heading);
