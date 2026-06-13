@@ -42,8 +42,11 @@ $ flutter pub add compassx
 ```
 
 Check the minimum supported version of your project and update as necessary.
-- **iOS: 12**
+- **iOS: 13**
 - **Android: 21**
+
+CompassX supports both Swift Package Manager and CocoaPods on iOS. Swift
+Package Manager support requires Flutter 3.41 or later and Dart 3.11 or later.
 
 Request permission to get true heading in Android. Not required on iOS.
 ```console

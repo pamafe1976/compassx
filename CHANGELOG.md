@@ -1,3 +1,8 @@
+## Unreleased
+
+* Add Swift Package Manager support for iOS while retaining CocoaPods compatibility.
+* Raise the minimum supported versions to Flutter 3.41, Dart 3.11, and iOS 13.
+
 ## 1.0.1
 
 * Fix compatibility in Android <29 [#15](https://github.com/natsuk4ze/compassx/pull/14)
